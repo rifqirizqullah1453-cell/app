@@ -1,9 +1,9 @@
-import { getDb } from "./queries/connection";
-import { orders, orderPhotos, messages } from "@db/schema";
+import { getDb } from "./queries/connection.js";
+import { orders, orderPhotos, messages } from "../db/schema.js";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
-import { createRouter, publicQuery, authedQuery } from "./middleware";
-import type { TrpcContext } from "./context";
+import { createRouter, publicQuery, authedQuery } from "./middleware.js";
+import type { TrpcContext } from "./context.js";
 
 export async function createOrder(data: {
   customerId: number;
