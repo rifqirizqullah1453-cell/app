@@ -1,8 +1,8 @@
-import devServer from "@hono/vite-dev-server"
-import path from "path"
-const __dirname = import.meta.dirname
-import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
+import devServer from "@hono/vite-dev-server";
+import path from "path";
+const __dirname = import.meta.dirname;
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -23,7 +23,10 @@ export default defineConfig({
   },
   envDir: path.resolve(__dirname),
   build: {
-    outDir: path.resolve(__dirname, "dist/public"),
+    // Diubah ke "dist" agar satpam Vercel otomatis menemukan file website-mu
+    outDir: path.resolve(__dirname, "dist"),
     emptyOutDir: true,
+    // Ditambahkan agar peringatan kuning (chunk size warning) hilang
+    chunkSizeWarningLimit: 3000,
   },
 });
