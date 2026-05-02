@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/images/logo-boh.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#2BC5D4" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="description" content="Boh-Hizmet - Your reliable on-demand service platform in Bartin, Turkey." />
+    <title>Boh-Hizmet</title>
+    <style>
+      #initial-loading {
+        position: fixed;
+        inset: 0;
+        background: #F0FAFB;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      #initial-loading .logo {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 16px;
+      }
+      #initial-loading .spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid #D6E4F0;
+        border-top-color: #2BC5D4;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 12px;
+      }
+      #initial-loading .title {
+        font-size: 18px;
+        font-weight: 900;
+        color: #0B1D35;
+        margin-bottom: 4px;
+      }
+      #initial-loading .subtitle {
+        font-size: 13px;
+        font-weight: 600;
+        color: #8899AA;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+    <script>
+      // Detect private mode / storage restrictions
+      try {
+        localStorage.setItem('__t', '1');
+        localStorage.removeItem('__t');
+      } catch(e) {
+        console.warn('Storage restricted');
+      }
+    </script>
+  </head>
+  <body>
+    <div id="initial-loading">
+      <img src="/images/logo-boh.png" alt="Boh-Hizmet" class="logo" />
+      <div class="spinner"></div>
+      <div class="title">Boh-Hizmet</div>
+      <div class="subtitle">Yukleniyor...</div>
+    </div>
+    <div id="root"></div>
+    <noscript>
+      <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#F0FAFB;padding:24px;text-align:center;font-family:sans-serif;">
+        <div>
+          <p style="font-size:16px;font-weight:700;color:#2BC5D4;margin-bottom:8px;">JavaScript is required</p>
+          <p style="font-size:13px;color:#64748B;">Please enable JavaScript in your browser settings to use Boh-Hizmet.</p>
+        </div>
+      </div>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
