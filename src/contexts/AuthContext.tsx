@@ -41,9 +41,26 @@ function saveSession(profile: UserProfile | null) {
   } catch { /* ignore */ }
 }
 
+function getOAuthUrl() {
+  const kimiAuthUrl = import.meta.env.VITE_KIMI_AUTH_URL;
+  const appID = import.meta.env.VITE_APP_ID;
+  const redirectUri = `${window.location.origin}/api/oauth/callback`;
+  const state = btoa(redirectUri);
+
+  const url = new URL(`${kimiAuthUrl}/api/oauth/authorize`);
+  url.searchParams.set("client_id", appID);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", "profile");
+  url.searchParams.set("state", state);
+
+  return url.toString();
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const utils = trpc.useUtils();
 
   // tRPC auth
   const { data: serverUser, isLoading: serverLoading } = trpc.auth.me.useQuery(undefined, {
@@ -55,6 +72,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       setUserProfile(null);
       saveSession(null);
+      utils.invalidate();
+    },
+  });
+
+  const registerMutation = trpc.auth.register.useMutation({
+    onSuccess: (data) => {
+      // After registration, auto-login by setting token cookie
+      if (data.token) {
+        document.cookie = `kimi_sid=${data.token}; path=/; max-age=${365 * 24 * 60 * 60}`;
+        const mapped: UserProfile = {
+          uid: String(data.user.id),
+          name: data.user.name,
+          email: data.user.email,
+          role: data.user.role as UserRole,
+          phone: data.user.phone || '',
+          rating: 5.0,
+          totalRatings: 0,
+          isOnline: true,
+          createdAt: Date.now(),
+        };
+        setUserProfile(mapped);
+        saveSession(mapped);
+        utils.invalidate();
+      }
+    },
+  });
+
+  const loginMutation = trpc.auth.login.useMutation({
+    onSuccess: (data) => {
+      const mapped: UserProfile = {
+        uid: String(data.user.id),
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role as UserRole,
+        phone: data.user.phone || '',
+        rating: 5.0,
+        totalRatings: 0,
+        isOnline: true,
+        createdAt: Date.now(),
+      };
+      setUserProfile(mapped);
+      saveSession(mapped);
+      utils.invalidate();
     },
   });
 
@@ -90,48 +150,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [serverUser]);
 
+  // Email/password login via backend
   const signIn = useCallback(async (email: string, password: string) => {
-    await simulateNetworkDelay(500);
-    throw new Error('Gunakan "Sign in with Kimi" untuk login');
-  }, []);
+    await loginMutation.mutateAsync({ email, password });
+  }, [loginMutation]);
 
+  // Kimi OAuth login — redirect to Kimi OAuth page
   const signInWithGoogle = useCallback(async () => {
-    await simulateNetworkDelay(800);
-    const profile: UserProfile = {
-      uid: 'google-' + Date.now(),
-      name: 'Google User',
-      email: 'user@gmail.com',
-      role: 'customer',
-      phone: '',
-      rating: 5.0,
-      totalRatings: 0,
-      isOnline: true,
-      createdAt: Date.now(),
-    };
-    setUserProfile(profile);
-    saveSession(profile);
+    // Redirect to Kimi OAuth for real authentication
+    window.location.href = getOAuthUrl();
   }, []);
 
+  // Register via backend
   const signUp = useCallback(async (email: string, password: string, name: string, phone: string, role: UserRole, extra?: Partial<UserProfile>) => {
-    await simulateNetworkDelay(600);
-    const normalizedEmail = email.toLowerCase().trim();
-    const profile: UserProfile = {
-      uid: 'user-' + Date.now(),
+    await registerMutation.mutateAsync({
       name,
-      email: normalizedEmail,
-      role,
+      email,
+      password,
       phone,
-      rating: 5.0,
-      totalRatings: 0,
-      isOnline: true,
-      createdAt: Date.now(),
-      workerStatus: role === 'worker' ? 'pending' : undefined,
-      suspended: false,
-      ...extra,
-    };
-    setUserProfile(profile);
-    saveSession(profile);
-  }, []);
+      role: role as 'customer' | 'worker',
+    });
+  }, [registerMutation]);
 
   const signOut = useCallback(() => {
     logoutMutation.mutate();
@@ -168,7 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextType = {
     userProfile,
     allUsers,
-    isLoading: isLoading || serverLoading,
+    isLoading: isLoading || serverLoading || registerMutation.isPending || loginMutation.isPending,
     isAdmin,
     isWorker,
     isCustomer,
@@ -180,8 +219,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-function simulateNetworkDelay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
