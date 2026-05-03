@@ -13,6 +13,37 @@ export async function findUserByUnionId(unionId: string) {
   return rows[0];
 }
 
+export async function findUserByEmail(email: string) {
+  const rows = await getDb()
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.email, email))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function createLocalUser(data: {
+  name: string;
+  email: string;
+  passwordHash: string;
+  phone: string;
+  role: string;
+}) {
+  const result = await getDb()
+    .insert(schema.users)
+    .values({
+      name: data.name,
+      email: data.email.toLowerCase().trim(),
+      passwordHash: data.passwordHash,
+      phone: data.phone,
+      role: data.role as any,
+      authType: "local",
+      unionId: null,
+    })
+    .$returningId();
+  return result[0]?.id;
+}
+
 export async function upsertUser(data: InsertUser) {
   const values = { ...data };
   const updateSet: Partial<InsertUser> = {
@@ -33,4 +64,11 @@ export async function upsertUser(data: InsertUser) {
     .insert(schema.users)
     .values(values)
     .onDuplicateKeyUpdate({ set: updateSet });
+}
+
+export async function updateUserLastSignIn(userId: number) {
+  await getDb()
+    .update(schema.users)
+    .set({ lastSignInAt: new Date() })
+    .where(eq(schema.users.id, userId));
 }
