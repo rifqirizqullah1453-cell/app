@@ -3,11 +3,13 @@ import { mysqlTable, varchar, text, timestamp, int, boolean, json, mysqlEnum, de
 // Users table (extends auth system)
 export const users = mysqlTable("users", {
   id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
-  unionId: varchar("unionId", { length: 255 }).notNull().unique(),
+  unionId: varchar("unionId", { length: 255 }).unique(),
   name: varchar("name", { length: 255 }),
   email: varchar("email", { length: 320 }),
   avatar: text("avatar"),
   phone: varchar("phone", { length: 20 }),
+  passwordHash: varchar("passwordHash", { length: 255 }),
+  authType: mysqlEnum("authType", ["kimi", "local"]).default("kimi").notNull(),
   role: mysqlEnum("role", ["user", "customer", "worker", "admin"]).default("customer").notNull(),
   rating: decimal("rating", { precision: 3, scale: 1 }).default("5.0"),
   totalRatings: int("totalRatings").default(0),
