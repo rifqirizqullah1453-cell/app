@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useCallback, useState, useEffect, useRef, type ReactNode } from 'react';
 import { trpc } from '@/providers/trpc';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
@@ -17,21 +17,29 @@ function useOrderData() {
   const { toast } = useToast();
   const utils = trpc.useUtils();
 
-  // Queries
+  // Queries with tRPC Polling (replaces WebSocket for Vercel serverless)
   const allOrders = trpc.order.list.useQuery(undefined, {
     enabled: !!userProfile,
+    refetchInterval: 3000,  // ⬅️ POLLING: fetch every 3 seconds
+    staleTime: 2000,
   });
 
   const myOrders = trpc.order.myOrders.useQuery(undefined, {
     enabled: userProfile?.role === 'customer',
+    refetchInterval: 3000,  // ⬅️ POLLING
+    staleTime: 2000,
   });
 
   const workerOrders = trpc.order.workerOrders.useQuery(undefined, {
     enabled: userProfile?.role === 'worker',
+    refetchInterval: 3000,  // ⬅️ POLLING
+    staleTime: 2000,
   });
 
   const availableOrders = trpc.order.available.useQuery(undefined, {
     enabled: userProfile?.role === 'worker',
+    refetchInterval: 3000,  // ⬅️ POLLING
+    staleTime: 2000,
   });
 
   // Get appropriate orders based on role
@@ -39,9 +47,56 @@ function useOrderData() {
     ? (workerOrders.data || availableOrders.data || [])
     : (myOrders.data || allOrders.data || []);
 
+  // NEW ORDER NOTIFICATION (browser notification + sound)
+  const [notifEnabled, setNotifEnabled] = useState(false);
+  const prevOrdersRef = useRef(orders);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('boh_notif_enabled');
+    if (saved === 'true') setNotifEnabled(true);
+  }, []);
+
+  useEffect(() => {
+    const prev = prevOrdersRef.current;
+    const newOnes = orders.filter(o =>
+      o.status === 'searching_worker' &&
+      !prev.find(p => p.id === o.id)
+    );
+    if (newOnes.length > 0 && notifEnabled) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Pesanan Baru!', {
+          body: `${newOnes.length} pesanan baru tersedia`,
+          icon: '/images/c-mascot.png',
+        });
+      }
+      try {
+        const audio = new Audio('/sounds/new-order.mp3');
+        audio.play().catch(() => {});
+      } catch {}
+    }
+    prevOrdersRef.current = orders;
+  }, [orders, notifEnabled]);
+
+  const enableNotifications = async () => {
+    if (!('Notification' in window)) {
+      toast('Browser tidak mendukung notifikasi', 'error');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      const unlock = new Audio();
+      await unlock.play().catch(() => {});
+      setNotifEnabled(true);
+      localStorage.setItem('boh_notif_enabled', 'true');
+      toast('Notifikasi aktif!', 'success');
+    } else {
+      toast('Izin notifikasi ditolak', 'error');
+    }
+  };
+
   // Mutations
   const createOrderMutation = trpc.order.create.useMutation({
-    onSuccess: (orderId) => {
+    onSuccess: () => {
       utils.order.list.invalidate();
       utils.order.myOrders.invalidate();
       utils.order.available.invalidate();
@@ -78,17 +133,13 @@ function useOrderData() {
   });
 
   const updateLocationMutation = trpc.order.updateLocation.useMutation();
-
   const addPhotoMutation = trpc.order.addPhoto.useMutation();
-
   const updateStatusMutation = trpc.order.updateStatus.useMutation({
-    onSuccess: () => {
-      utils.order.list.invalidate();
-    },
+    onSuccess: () => utils.order.list.invalidate(),
   });
 
   const createOrder = useCallback(async (orderData: OrderData) => {
-    const result = await createOrderMutation.mutateAsync({
+    return await createOrderMutation.mutateAsync({
       serviceType: orderData.serviceType,
       pickupAddress: orderData.pickupAddress,
       pickupLat: orderData.pickupLat,
@@ -103,7 +154,6 @@ function useOrderData() {
       isScheduled: orderData.isScheduled,
       scheduledAt: orderData.scheduledAt,
     });
-    return result;
   }, [createOrderMutation]);
 
   const acceptOrder = useCallback(async (orderId: string) => {
@@ -121,17 +171,9 @@ function useOrderData() {
     isCustomer: boolean
   ) => {
     if (isCustomer) {
-      await rateOrderMutation.mutateAsync({
-        orderId,
-        customerRating: rating,
-        customerReview: review,
-      });
+      await rateOrderMutation.mutateAsync({ orderId, customerRating: rating, customerReview: review });
     } else {
-      await rateOrderMutation.mutateAsync({
-        orderId,
-        workerRating: rating,
-        workerReview: review,
-      });
+      await rateOrderMutation.mutateAsync({ orderId, workerRating: rating, workerReview: review });
     }
   }, [rateOrderMutation]);
 
@@ -158,7 +200,6 @@ function useOrderData() {
     utils.order.available.invalidate();
   }, [utils]);
 
-  // Send emergency (console only for now)
   const sendEmergency = useCallback((orderId: string, message: string) => {
     console.log('EMERGENCY:', orderId, message);
     toast('Emergency alert sent!', 'error');
@@ -211,6 +252,8 @@ function useOrderData() {
     addOrderPhoto,
     refreshOrders,
     sendEmergency,
+    enableNotifications,     // ⬅️ EXPOSED for WorkerDashboard button
+    notifEnabled,            // ⬅️ EXPOSED
     isLoading: allOrders.isLoading || myOrders.isLoading || workerOrders.isLoading,
   };
 }
