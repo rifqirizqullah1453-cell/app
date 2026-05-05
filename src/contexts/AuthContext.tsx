@@ -91,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           totalRatings: 0,
           isOnline: true,
           createdAt: Date.now(),
+          isVerified: data.user.isVerified ?? true,
         };
         setUserProfile(mapped);
         saveSession(mapped);
@@ -111,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         totalRatings: 0,
         isOnline: true,
         createdAt: Date.now(),
+        isVerified: data.user.isVerified ?? true,
       };
       setUserProfile(mapped);
       saveSession(mapped);
@@ -143,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         rating: parseFloat(serverUser.rating || '5.0'),
         totalRatings: serverUser.totalRatings || 0,
         isOnline: serverUser.isOnline || false,
+        isVerified: serverUser.isVerified ?? true,
         createdAt: serverUser.createdAt ? new Date(serverUser.createdAt).getTime() : Date.now(),
       };
       setUserProfile(mapped);
@@ -201,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     rating: parseFloat(u.rating || '5.0'),
     totalRatings: u.totalRatings || 0,
     isOnline: u.isOnline || false,
+    isVerified: u.isVerified ?? true,
     createdAt: u.createdAt ? new Date(u.createdAt).getTime() : Date.now(),
   })) || [];
 
