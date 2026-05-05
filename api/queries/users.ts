@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import * as schema from "../../db/schema.js";
 import type { InsertUser } from "../../db/schema.js";
 import { getDb } from "./connection.js";
@@ -84,5 +84,8 @@ export async function getPendingWorkers() {
   return getDb()
     .select()
     .from(schema.users)
-    .where(eq(schema.users.role, "worker"));
+    .where(and(
+      eq(schema.users.role, "worker"),
+      eq(schema.users.isVerified, false)
+    ));
 }
