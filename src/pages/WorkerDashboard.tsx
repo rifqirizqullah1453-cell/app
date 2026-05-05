@@ -12,6 +12,41 @@ const easeOut = [0.16, 1, 0.3, 1] as const;
 
 export default function WorkerDashboard() {
   const navigate = useNavigate();
+  const { userProfile } = useAuth();
+
+  // GUARD: Worker belum diverifikasi
+  if (userProfile?.role === 'worker' && userProfile?.isVerified === false) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: 'var(--bg)' }}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="text-center max-w-md"
+        >
+          <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-3" style={{ color: 'var(--text)' }}>
+            Menunggu Persetujuan
+          </h2>
+          <p className="text-base mb-8" style={{ color: 'var(--text-muted)', lineHeight: '1.6' }}>
+            Akun Anda sedang menunggu persetujuan dari Admin.
+            Anda akan menerima notifikasi setelah akun diverifikasi.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-8 py-3.5 rounded-2xl text-sm font-bold btn-cyan"
+          >
+            Cek Status
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
   const { userProfile, updateUserProfile } = useAuth();
   const { orders, acceptOrder, updateWorkerLocation, refreshOrders } = useOrders();
   const { toast } = useToast();
