@@ -5,7 +5,7 @@ import { useOrders } from '@/contexts/OrderContext';
 import { useToast } from '@/contexts/ToastContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Hand, Power, Bell, ArrowRight, Package, CheckCircle, Wallet, MessageCircle } from 'lucide-react';
+import { MapPin, Hand, Power, Bell, BellRing, ArrowRight, Package, CheckCircle, Wallet, MessageCircle } from 'lucide-react';
 import { STATUS_LABELS, SERVICE_LABELS } from '@/types';
 
 const easeOut = [0.16, 1, 0.3, 1] as const;
@@ -17,6 +17,55 @@ export default function WorkerDashboard() {
   const { toast } = useToast();
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
+
+  // ⬇️ NOTIFIKASI: State & permission
+  const [notifEnabled, setNotifEnabled] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('boh_notif_enabled') === 'true';
+    }
+    return false;
+  });
+  const prevOrderCountRef = useRef(0);
+
+  const enableNotifications = async () => {
+    if (!('Notification' in window)) {
+      toast('Browser tidak mendukung notifikasi', 'error');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      // Unlock Audio API (browser requires user interaction)
+      const silent = new Audio();
+      silent.play().catch(() => {});
+      setNotifEnabled(true);
+      localStorage.setItem('boh_notif_enabled', 'true');
+      toast('Notifikasi aktif!', 'success');
+    } else {
+      toast('Izin notifikasi ditolak', 'error');
+    }
+  };
+
+  // ⬇️ NOTIFIKASI: Deteksi order baru
+  useEffect(() => {
+    const availableCount = orders.filter(o => o.status === 'searching_worker' && !o.workerId).length;
+    const prevCount = prevOrderCountRef.current;
+
+    if (availableCount > prevCount && notifEnabled) {
+      // Browser notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Pesanan Baru!', {
+          body: `${availableCount} pesanan baru menunggu.`,
+          icon: '/images/c-mascot.png',
+        });
+      }
+      // Sound
+      try {
+        const audio = new Audio('/sounds/new-order.mp3');
+        audio.play().catch(() => {});
+      } catch {}
+    }
+    prevOrderCountRef.current = availableCount;
+  }, [orders, notifEnabled]);
 
   const { containerRef, PullIndicator, refreshing } = usePullToRefresh({
     onRefresh: async () => {
@@ -58,6 +107,7 @@ export default function WorkerDashboard() {
       </div>
     );
   }
+
   const myOrders = useMemo(() => orders.filter(o => o.workerId === userProfile?.uid || o.status === 'searching_worker').sort((a, b) => b.createdAt - a.createdAt), [orders, userProfile?.uid]);
   const activeOrders = myOrders.filter(o => o.workerId === userProfile?.uid && !['completed', 'cancelled'].includes(o.status));
   const completedOrders = myOrders.filter(o => o.workerId === userProfile?.uid && o.status === 'completed');
@@ -71,7 +121,7 @@ export default function WorkerDashboard() {
     try { await acceptOrder(orderId); toast('Order accepted!', 'success'); } catch (err: any) { toast(err.message || 'Failed', 'error'); } finally { setAcceptingId(null); }
   };
 
-  // LIVE GPS TRACKING: Broadcast worker location for active orders
+  // LIVE GPS TRACKING
   useEffect(() => {
     if (activeOrders.length === 0) {
       if (watchIdRef.current !== null) {
@@ -80,27 +130,16 @@ export default function WorkerDashboard() {
       }
       return;
     }
-
     if (!navigator.geolocation) return;
-
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
-        activeOrders.forEach((order) => {
-          updateWorkerLocation(order.id, lat, lng);
-        });
+        activeOrders.forEach((order) => { updateWorkerLocation(order.id, lat, lng); });
       },
-      (err) => {
-        console.log('GPS tracking error:', err.message);
-      },
+      (err) => { console.log('GPS tracking error:', err.message); },
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
     );
-
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
-    };
+    return () => { if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current); };
   }, [activeOrders.map(o => o.id).join(','), updateWorkerLocation]);
 
   return (
@@ -115,8 +154,24 @@ export default function WorkerDashboard() {
             <h1 className="text-2xl font-black mt-0.5 text-white tracking-tight">{userProfile?.name?.split(' ')[0] || 'Worker'}</h1>
           </motion.div>
           <div className="flex items-center gap-3">
+            {/* ⬇️ TOMBOL NOTIFIKASI */}
+            {!notifEnabled ? (
+              <motion.button
+                onClick={enableNotifications}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="w-10 h-10 flex items-center justify-center rounded-full glass"
+                title="Aktifkan Notifikasi"
+              >
+                <Bell className="w-5 h-5 text-white" />
+              </motion.button>
+            ) : (
+              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-emerald-500/20" title="Notifikasi Aktif">
+                <BellRing className="w-5 h-5 text-emerald-400" />
+              </div>
+            )}
             <motion.button whileHover={{ scale: 1.1, rotate: 10 }} whileTap={{ scale: 0.9 }} className="w-10 h-10 flex items-center justify-center rounded-full glass relative">
-              <Bell className="w-5 h-5 text-white" />
+              <MessageCircle className="w-5 h-5 text-white" />
               {availableOrders.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 border border-white/30" />}
             </motion.button>
             <motion.div onClick={() => navigate('/profile')} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }} className="w-11 h-11 rounded-full overflow-hidden cursor-pointer border-[2.5px] border-white/30 ring-2 ring-white/10 shadow-lg">
@@ -270,4 +325,3 @@ export default function WorkerDashboard() {
     </div>
   );
 }
-
