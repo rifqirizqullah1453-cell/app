@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { trpc } from '@/providers/trpc';
 import { useOrders } from '@/contexts/OrderContext';
 import { useToast } from '@/contexts/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,7 +41,7 @@ export default function AdminDashboard() {
   const { userProfile } = useAuth();
   const { orders } = useOrders();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'workers' | 'users'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'workers' | 'users' | 'verification'>('overview');
   const [allUsers, setAllUsers] = useState<UserProfile[]>(loadAllUsers());
 
   const refreshUsers = () => setAllUsers(loadAllUsers());
@@ -106,6 +107,7 @@ export default function AdminDashboard() {
           {[
             { key: 'overview', label: 'Overview', icon: Package },
             { key: 'analytics', label: 'Analytics', icon: TrendingUp },
+            { key: 'verification', label: 'Verifikasi', icon: ShieldCheck },
             { key: 'workers', label: 'Workers', icon: Briefcase },
             { key: 'users', label: 'Users', icon: Users },
           ].map(tab => (
@@ -205,6 +207,14 @@ export default function AdminDashboard() {
           {activeTab === 'analytics' && (
             <motion.div key="analytics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <AdminAnalytics />
+            </motion.div>
+          )}
+
+          {/* VERIFICATION TAB */}
+          {activeTab === 'verification' && (
+            <motion.div key="verification" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
+              <h3 className="text-lg font-bold text-[var(--text)]">Worker Menunggu Verifikasi</h3>
+              <WorkerVerificationList />
             </motion.div>
           )}
 
@@ -323,6 +333,55 @@ export default function AdminDashboard() {
           )}
         </AnimatePresence>
       </div>
+    </div>
+  );
+}
+
+// Worker Verification Component (uses tRPC)
+function WorkerVerificationList() {
+  const { toast } = useToast();
+  const { data: workers, refetch } = trpc.auth.pendingWorkers.useQuery();
+  const verifyMutation = trpc.auth.verifyWorker.useMutation({
+    onSuccess: () => {
+      toast('Worker berhasil diverifikasi!', 'success');
+      refetch();
+    },
+  });
+
+  const pendingWorkers = workers?.filter(w => !w.isVerified) || [];
+
+  if (pendingWorkers.length === 0) {
+    return (
+      <div className="p-8 text-center rounded-2xl card-bg border border-[var(--border)]">
+        <ShieldCheck className="w-8 h-8 mx-auto mb-3 text-[var(--text-muted)]" />
+        <p className="text-sm text-[var(--text-muted)]">Tidak ada worker yang menunggu verifikasi.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {pendingWorkers.map(worker => (
+        <div key={worker.id} className="p-4 rounded-2xl card-bg border border-[var(--border)] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+              <span className="text-sm font-bold text-amber-600">{worker.name?.[0]?.toUpperCase() || 'W'}</span>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[var(--text)]">{worker.name}</p>
+              <p className="text-xs text-[var(--text-muted)]">{worker.email}</p>
+              <span className="inline-block mt-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-600">BELUM DIVERIFIKASI</span>
+            </div>
+          </div>
+          <button
+            onClick={() => verifyMutation.mutate({ userId: Number(worker.id) })}
+            disabled={verifyMutation.isPending}
+            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-50"
+          >
+            {verifyMutation.isPending ? 'Memproses...' : 'Approve'}
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
