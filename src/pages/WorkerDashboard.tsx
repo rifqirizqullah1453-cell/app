@@ -12,7 +12,19 @@ const easeOut = [0.16, 1, 0.3, 1] as const;
 
 export default function WorkerDashboard() {
   const navigate = useNavigate();
-  const { userProfile } = useAuth();
+  const { userProfile, updateUserProfile } = useAuth();
+  const { orders, acceptOrder, updateWorkerLocation, refreshOrders } = useOrders();
+  const { toast } = useToast();
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+
+  const { containerRef, PullIndicator, refreshing } = usePullToRefresh({
+    onRefresh: async () => {
+      await new Promise(r => setTimeout(r, 800));
+      refreshOrders();
+    },
+    disabled: false,
+  });
 
   // GUARD: Worker belum diverifikasi
   if (userProfile?.role === 'worker' && userProfile?.isVerified === false) {
@@ -46,21 +58,6 @@ export default function WorkerDashboard() {
       </div>
     );
   }
-
-  const { userProfile, updateUserProfile } = useAuth();
-  const { orders, acceptOrder, updateWorkerLocation, refreshOrders } = useOrders();
-  const { toast } = useToast();
-  const [acceptingId, setAcceptingId] = useState<string | null>(null);
-  const watchIdRef = useRef<number | null>(null);
-
-  const { containerRef, PullIndicator, refreshing } = usePullToRefresh({
-    onRefresh: async () => {
-      await new Promise(r => setTimeout(r, 800));
-      refreshOrders();
-    },
-    disabled: false,
-  });
-
   const myOrders = useMemo(() => orders.filter(o => o.workerId === userProfile?.uid || o.status === 'searching_worker').sort((a, b) => b.createdAt - a.createdAt), [orders, userProfile?.uid]);
   const activeOrders = myOrders.filter(o => o.workerId === userProfile?.uid && !['completed', 'cancelled'].includes(o.status));
   const completedOrders = myOrders.filter(o => o.workerId === userProfile?.uid && o.status === 'completed');
@@ -273,3 +270,4 @@ export default function WorkerDashboard() {
     </div>
   );
 }
+
