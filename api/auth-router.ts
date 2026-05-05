@@ -9,6 +9,8 @@ import {
   findUserByEmail,
   createLocalUser,
   updateUserLastSignIn,
+  verifyWorker,
+  getPendingWorkers,
 } from "./queries/users.js";
 import { signSessionToken } from "./kimi/session.js";
 import { env } from "./lib/env.js";
@@ -100,6 +102,14 @@ export const authRouter = createRouter({
       }
 
       // Generate session token
+      // Set isVerified false for workers
+      if (input.role === "worker") {
+        await getDb()
+          .update(users)
+          .set({ isVerified: false })
+          .where(eq(users.id, userId));
+      }
+
       const token = await createLocalSessionToken(userId, input.email);
 
       return {
@@ -110,6 +120,7 @@ export const authRouter = createRouter({
           name: input.name,
           email: input.email,
           role: input.role,
+          isVerified: input.role !== "worker",
         },
       };
     }),
@@ -170,6 +181,19 @@ export const authRouter = createRouter({
         },
       };
     }),
+
+  // Admin: verify a worker
+  verifyWorker: adminQuery
+    .input(z.object({ userId: z.number() }))
+    .mutation(async ({ input }) => {
+      await verifyWorker(input.userId);
+      return { success: true };
+    }),
+
+  // Admin: list all workers (for verification)
+  pendingWorkers: adminQuery.query(async () => {
+    return getPendingWorkers();
+  }),
 
   // Get local auth token after registration (to set cookie manually)
   getLocalToken: publicQuery
