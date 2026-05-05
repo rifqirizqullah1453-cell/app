@@ -11,6 +11,7 @@ export const users = mysqlTable("users", {
   passwordHash: varchar("passwordHash", { length: 255 }),
   authType: mysqlEnum("authType", ["kimi", "local"]).default("kimi").notNull(),
   role: mysqlEnum("role", ["user", "customer", "worker", "admin"]).default("customer").notNull(),
+  isVerified: boolean("isVerified").default(false),
   rating: decimal("rating", { precision: 3, scale: 1 }).default("5.0"),
   totalRatings: int("totalRatings").default(0),
   isOnline: boolean("isOnline").default(false),
