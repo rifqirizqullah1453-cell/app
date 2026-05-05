@@ -72,3 +72,17 @@ export async function updateUserLastSignIn(userId: number) {
     .set({ lastSignInAt: new Date() })
     .where(eq(schema.users.id, userId));
 }
+
+export async function verifyWorker(userId: number) {
+  await getDb()
+    .update(schema.users)
+    .set({ isVerified: true })
+    .where(eq(schema.users.id, userId));
+}
+
+export async function getPendingWorkers() {
+  return getDb()
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.role, "worker"));
+}
